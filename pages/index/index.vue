@@ -1,9 +1,28 @@
 <template>
-	<view class="content">
-		<image class="logo" src="/static/logo.png"></image>
-		<view class="text-area">
-			<text class="title">{{title}}</text>
+	<view class="home">
+		
+		<scroll-view scroll-x class="navscroll">
+				<view class="item" :class="{'active': navIndex === index}" v-for="(item, index) in navArr" @click="clickNav(index, item.id)" :key="item.id">
+					{{item.classname}}
+				</view>
+		</scroll-view>
+		
+		<view class="content">
+			<view class="row" v-for="(item,index) in newsArr" :key="item.id">
+				<newsbox @click.native="goDetail(item)" :item="item"></newsbox>
+			</view>
 		</view>
+		
+		<view class="nodata" v-if="newsArr.length === 0">
+			<image src="../../static/images/nodata.png" mode="widthFix"></image>
+		</view>
+		
+		<view class="loading" v-if="newsArr.length">
+			<view></view>
+			<view v-if="loading === 1">数据加载中</view>
+			<view v-if="loading === 2">没有更多了~~</view>
+		</view>
+		
 	</view>
 </template>
 
@@ -11,42 +30,137 @@
 	export default {
 		data() {
 			return {
-				title: 'Hello'
+				navIndex: 0,
+				navArr: [],
+				newsArr: [],
+				currentPage: 1,
+				loading: 0,  //0默认    1加载中	  2没有更多了
 			}
 		},
 		onLoad() {
-
+			this.getNavData();
+			this.getNewsData();
 		},
+		
+		onReachBottom() {
+			
+			const { loading } = this;
+			if (loading === 2) {
+				return;
+			}
+			
+			this.currentPage++;
+			this.loading = 1;
+			this.getNewsData();
+		},
+		
 		methods: {
-
+			// 点击导航切换
+			clickNav(index,id) {
+				this.navIndex = index;
+				this.currentPage = 1;
+				this.loading = 0;
+				this.newsArr = [];
+				this.getNewsData(id)
+			},
+			
+			// 跳转到详情页
+			goDetail(item) {
+				uni.navigateTo({
+					url: `/pages/detail/detail?cid=${item.classid}&id=${item.id}`
+				})
+			},
+			
+			// 获取导航列表数据
+			getNavData() {
+				uni.request({
+					url: "https://ku.qingnian8.com/dataApi/news/navlist.php",
+					success: (res) => {
+						this.navArr = res.data;
+					}
+				})
+			},
+			
+			// 获取新闻列表数据
+			getNewsData(id = 50) {
+				const {currentPage} = this;
+				
+				uni.request({
+					url: "https://ku.qingnian8.com/dataApi/news/newslist.php",
+					data: {
+						cid: id,
+						page: currentPage
+					},
+					success: res => {
+						if (res.data.length <= 0) {
+							this.loading = 2;
+							return;
+						}
+						
+						this.newsArr = [...this.newsArr, ...res.data];
+					}
+				})
+			}
+			
 		}
 	}
 </script>
 
-<style>
-	.content {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
+<style lang="scss" scoped>
+	
+.navscroll {
+		
+	height: 100rpx;
+	background: #F7F8FA;
+	white-space: nowrap;
+	position: fixed;
+	top: var(--window-top);
+	left: 0;
+	z-index: 10;
+		
+	/deep/ ::-webkit-scrollbar {
+		width: 4px !important;
+		height: 1px !important;
+		overflow: auto !important;
+		background: transparent !important;
+		-webkit-appearance: auto !important;
+		display: block;
 	}
+		
+	.item {
+		font-size: 40rpx;
+		display: inline-block;
+		line-height: 100rpx;
+		padding: 0rpx 30rpx;
+		color: #333;
+		&.active {
+			color: #31C27C;
+		}
+	}
+}
 
-	.logo {
-		height: 200rpx;
-		width: 200rpx;
-		margin-top: 200rpx;
-		margin-left: auto;
-		margin-right: auto;
-		margin-bottom: 50rpx;
+.content {
+	padding: 30rpx;
+	padding-top: 130rpx;
+	.row {
+		border-bottom: 1rpx dashed #efefef;
+		padding: 20rpx 0;
 	}
+}
 
-	.text-area {
-		display: flex;
-		justify-content: center;
+.nodata {
+	display: flex;
+	justify-content: center;
+	image {
+		width: 360rpx;
 	}
+}
 
-	.title {
-		font-size: 36rpx;
-		color: #8f8f94;
-	}
+.loading {
+	text-align: center;
+	font-size: 26rpx;
+	color: #888;
+	line-height: 2em;
+}
+
 </style>
